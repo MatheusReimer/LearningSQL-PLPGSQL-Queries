@@ -1,4 +1,4 @@
-## This is a few questions about Queries with SQL and PLPGSQL ##
+## These are a few questions about Queries with SQL and PLPGSQL ##
 
 
 
