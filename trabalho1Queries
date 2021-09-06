@@ -1,0 +1,414 @@
+--Questao 1
+
+CREATE TABLE log (
+	id SERIAL NOT NULL PRIMARY KEY,
+	descricao VARCHAR(500)
+);
+
+CREATE TABLE estado (
+	id SERIAL NOT NULL PRIMARY KEY,
+	nome VARCHAR(100)
+);
+
+CREATE TABLE cidade (
+	id SERIAL NOT NULL PRIMARY KEY,
+	id_estado INT NOT NULL,
+	nome VARCHAR(500),
+	CONSTRAINT fk_cidade_estado FOREIGN KEY(id_estado) REFERENCES estado(id)
+	
+);
+CREATE TABLE barbeiro (
+	id SERIAL NOT NULL PRIMARY KEY,
+	id_cidade INT NOT NULL,
+	nome VARCHAR(100),
+	logradouro VARCHAR(200),
+	numero INT,
+	bairro VARCHAR(60),
+	cep VARCHAR(9),
+	fixo VARCHAR(14),
+	celular VARCHAR(15),
+	status SMALLINT,
+	CONSTRAINT fk_barbeiro_cidade FOREIGN KEY(id_cidade) REFERENCES cidade(id)
+	
+);
+CREATE TABLE cliente (
+	id SERIAL NOT NULL PRIMARY KEY,
+	id_cidade INT NOT NULL,
+	nome VARCHAR(100),
+	logradouro VARCHAR(200),
+	numero INT,
+	bairro VARCHAR(60),
+	cep VARCHAR(9),
+	fixo VARCHAR(14),
+	celular VARCHAR(15),
+	status SMALLINT,
+	CONSTRAINT fk_cliente_cidade FOREIGN KEY(id_cidade) REFERENCES cidade(id)
+	
+);
+
+CREATE TABLE comanda
+(
+	id SERIAL NOT NULL PRIMARY KEY,
+	id_cliente INT NOT NULL,
+	id_barbeiro INT NOT NULL,
+	valor_total DECIMAL(8,2),
+	situacao SMALLINT,
+	CONSTRAINT fk_comanda_cliente FOREIGN KEY(id_cliente) REFERENCES cliente(id),
+	CONSTRAINT fk_comanda_barbeiro FOREIGN KEY(id_barbeiro) REFERENCES cliente(id)
+
+);
+
+CREATE TABLE agendamento
+(
+	id SERIAL NOT NULL PRIMARY KEY,
+	id_comanda INT NOT NULL,
+	inicio TIMESTAMP,
+	fim TIMESTAMP,
+	CONSTRAINT fk_agendamento_comanda FOREIGN KEY(id_comanda) REFERENCES comanda(id)
+);
+
+
+CREATE TABLE tipo_servico
+(
+	id SERIAL NOT NULL PRIMARY KEY,
+	nome VARCHAR(60),
+	valor DECIMAL(8,2),
+	status SMALLINT
+);
+
+
+
+CREATE TABLE item_comanda
+(
+  id_comanda INT NOT NULL,
+  id_tipo_servico INT NOT NULL,
+  PRIMARY KEY (id_comanda, id_tipo_servico),
+  FOREIGN KEY (id_comanda)
+      REFERENCES comanda(id),
+  FOREIGN KEY (id_tipo_servico)
+      REFERENCES tipo_servico (id)
+
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+---- QUESTAO 2
+
+INSERT INTO estado (nome) VALUES ('Santa Catarina'), ('Rio Grande do Sul'), ('Paraná');
+INSERT INTO cidade (id_estado, nome) VALUES (1, 'Brusque'),(1, 'Itajaí'),(2, 'Porto Alegre');
+
+
+INSERT INTO barbeiro(id_cidade,nome,logradouro,numero,bairro,cep,fixo,celular,status) VALUES
+(1,'CLEBER','AlgumaRuaDeBrusqueComNomeDeGovernador',333,'AlgumBairroDeBrusqueComNomeDeSanto','88318481','47991101803','4799101832',1),
+(2,'SEBASTIAO','AlgumaRuaDeItajaiComNomeDeGovernador',555,'AlgumBairroDeItajaiComNomeDeSanto','8832321','47912232345', '434343545',0),
+(3,'ZE','AlgumaRuaDePortoAlegreComNomeDeGovernador',232,'AlgumBairroDePortoAlegreComNomeDeSanto','4543434','32234345','4343545466',1);
+
+
+INSERT INTO cliente(id_cidade,nome,logradouro,numero,bairro,cep,fixo,celular,status) VALUES
+(1,'LULA','AlgumaRuaDeBrusqueComNomeDeGovernador',2234,'AlgumBairroDeBrusqueComNomeDeSanto','34318481','47991101803','4799101832',1),
+(2,'BOLSONARO','AlgumaRuaDeItajaiComNomeDeGovernador',235,'AlgumBairroDeItajaiComNomeDeSanto','2832321','47912232345', '434343545',1),
+(3,'TRUMP','AlgumaRuaDePortoAlegreComNomeDeGovernador',132,'AlgumBairroDePortoAlegreComNomeDeSanto','4589434','32234345','4343545466',0);
+
+
+
+INSERT INTO comanda(id_cliente,id_barbeiro,valor_total,situacao) VALUES
+(1,1,12.0,2),
+(2,2,20.50,1),
+(3,3,5.0,0);
+
+INSERT INTO agendamento(id_comanda,inicio) VALUES 
+(1,current_timestamp),
+(2,timestamp '2021-01-10 00:51:14'),
+(3,timestamp '2023-01-10 00:34:13'); 
+
+INSERT INTO tipo_servico(nome,valor,status) VALUES
+('Barba',20.0,1),
+('Cabelo',30.0,1),
+('Barba e Cabelo',40.0,1);
+
+
+INSERT INTO item_comanda(id_comanda,id_tipo_servico) VALUES (1,1),(2,2),(3,3);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----- QUESTAO 3 
+
+CREATE OR REPLACE FUNCTION qtdeCliente(INTEGER)
+RETURNS INTEGER AS $$
+	SELECT COUNT (cliente.id)
+	FROM cliente
+	JOIN cidade on cliente.id_cidade = cidade.id
+	JOIN estado on cidade.id_estado = estado.id
+	AND estado.id = $1
+$$ LANGUAGE SQL;	
+
+--SELECT qtdeCliente(1)
+
+
+
+---3.2
+
+CREATE OR REPLACE FUNCTION qtdeComandas(INTEGER, INTEGER)
+RETURNS TABLE(quantidade INTEGER, nomes VARCHAR) AS $$
+	SELECT COUNT (agendamento.id_comanda) AS quantidade, (barbeiro.nome) as nomes
+	FROM barbeiro
+	JOIN comanda on comanda.id_barbeiro = barbeiro.id
+	JOIN agendamento on agendamento.id_comanda = comanda.id
+	AND EXTRACT(MONTH FROM agendamento.inicio) = $1
+	AND EXTRACT(YEAR FROM agendamento.inicio) = $2
+	GROUP BY nomes 
+	ORDER BY quantidade DESC, nomes ASC
+
+$$ LANGUAGE SQL;
+
+
+--SELECT qtdeComandas(1,2021)
+
+
+
+
+---3.3
+
+CREATE OR REPLACE FUNCTION total(INTEGER)
+RETURNS DECIMAL AS $$
+	SELECT SUM(comanda.valor_total) as total from comanda
+	JOIN item_comanda as  t1 ON t1.id_comanda = comanda.id
+	JOIN tipo_servico as  t2 ON t2.id = t1.id_tipo_servico
+	WHERE t2.id = $1 AND comanda.situacao = 1
+$$ LANGUAGE SQL;
+
+
+--SELECT total(1)
+
+
+
+
+
+----QUESTAO 3.4
+CREATE OR REPLACE PROCEDURE insereCliente (id_cidade_p INTEGER, nome_p VARCHAR(100), logradouro_p VARCHAR(200), numero_p INTEGER, bairro_p VARCHAR(60), cep_p VARCHAR(9), fixo_p VARCHAR(14), celular_p VARCHAR(15), status_p SMALLINT)
+LANGUAGE plpgsql AS $$
+	BEGIN
+		IF NOT EXISTS(SELECT id FROM cidade WHERE id = id_cidade_p) THEN
+			RAISE EXCEPTION 'Cidade não cadastrada.';
+		END IF;
+		INSERT INTO cliente(id_cidade,nome,logradouro,numero,bairro,cep,fixo,celular,status) VALUES (id_cidade_p,nome_p,logradouro_p,numero_p,bairro_p,cep_p,fixo_p,celular_p,status_p);
+	END;	
+$$;
+
+
+--CALL insereCliente(1000,'Pedro','Rua a direita',30,'itacoloji','993304056','9932324242','023023293232','1');
+
+
+
+--- Questao 3.5
+CREATE OR REPLACE FUNCTION rendimentos (id_barbeiro_p INTEGER, mes_p INTEGER, ano_p INTEGER)
+RETURNS FLOAT AS $$
+	DECLARE
+		barbeiros INT;
+		valorTotal  FLOAT;
+	BEGIN
+		SELECT COUNT(*) INTO barbeiros FROM barbeiro WHERE id = id_barbeiro_p AND status = 0;
+		IF barbeiros = 0 THEN
+			RAISE EXCEPTION 'Barbeiro não cadastrado ou inativo';		
+		END IF;
+		SELECT SUM(valor_total) INTO valorTotal FROM comanda
+		JOIN agendamento on agendamento.id_comanda = comanda.id
+		AND EXTRACT(MONTH FROM agendamento.inicio) = mes_p
+		AND EXTRACT(YEAR FROM agendamento.inicio) = ano_p
+		WHERE id_barbeiro = id_barbeiro_p;
+		IF valorTotal IS NULL THEN
+			valorTotal := 0;
+		END IF;
+		RETURN valorTotal;
+		
+	END;	
+$$ LANGUAGE plpgsql;
+
+
+--SELECT rendimentos(1,1,2021)
+
+
+
+----------------------------------------------------------------------------------------------------------------
+
+---4.1
+
+
+
+
+
+
+
+
+------------------------------------------------------------
+-----4.2
+
+CREATE OR REPLACE FUNCTION valida_item_comanda() RETURNS TRIGGER AS $$
+	DECLARE
+		qtd_barbeiro INT;
+		qtd_cliente INT;
+	BEGIN
+		SELECT COUNT(id) INTO qtd_barbeiro FROM barbeiro WHERE id = NEW.id_barbeiro AND status = 1;
+		SELECT COUNT(id) INTO qtd_cliente FROM cliente WHERE id = NEW.id_cliente AND status = 1;
+		IF qtd_barbeiro = 0 AND qtd_cliente = 0 THEN 
+			RAISE EXCEPTION 'barbeiro e cliente não cadastrado ou inativo';
+		END IF;
+		IF qtd_barbeiro = 0 THEN 
+			RAISE EXCEPTION 'barbeiro não cadastrado ou inativo';
+		END IF;
+		IF qtd_cliente = 0 THEN 
+			RAISE EXCEPTION 'cliente não cadastrado ou inativo';
+		END IF;
+		RETURN NEW;
+	END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER trigger_valida_item_comanda BEFORE INSERT ON comanda
+FOR EACH ROW EXECUTE PROCEDURE valida_item_comanda();
+
+
+
+--------------------------------------------------------------------------------------------------------
+---4.3
+
+CREATE OR REPLACE FUNCTION verificaAumentoPreco() RETURNS TRIGGER AS $$
+	BEGIN
+		IF NEW.valor > (OLD.valor * 1.15) THEN
+			RAISE EXCEPTION 'O aumento não pode ser superior à 15 por cento';
+		END IF;
+		RETURN NEW;
+	END;
+$$ LANGUAGE plpgsql;
+
+--Segundo passo, criar o gatilho
+CREATE TRIGGER trigger_verificaAumentoPreco BEFORE UPDATE ON tipo_servico
+FOR EACH ROW EXECUTE PROCEDURE verificaAumentoPreco();
+
+
+
+
+---4.4
+
+CREATE OR REPLACE FUNCTION verificaExclusao() RETURNS TRIGGER AS $$
+	DECLARE
+	---{“operacao”: “delete”, “tabela”: “comanda”, “id”:1, “id_cliente”: 1, “id_barbeiro”: 1, “valor_total”: 50.5, “situacao”: 1}.
+	operacao VARCHAR;
+	tabela VARCHAR;
+	id_comanda INTEGER;
+	id_cliente INTEGER;
+	id_barbeiro INTEGER;
+	valor_total DECIMAL;
+	BEGIN
+	
+		INSERT INTO log(descricao) VALUES (CONCAT('{',
+												  'operacao:','DELETE',
+												  ', ',
+												  'tabela:','comanda',
+												  ', ',
+												  'id:',OLD.id ,
+												  ', ',
+												  'id_cliente:',OLD.id_cliente,
+												  ', ',
+												  'id:barbeiro',OLD.id_barbeiro,
+												  ', ',
+												  'valor_total:',OLD.valor_total,
+												  ', ',
+												  'situacao:',OLD.situacao,
+												  '}'
+												  ));
+		RETURN OLD;
+	END;
+$$ LANGUAGE plpgsql;
+
+--Segundo passo, criar o gatilho
+CREATE TRIGGER trigger_verificaExclusao AFTER DELETE ON comanda
+FOR EACH ROW EXECUTE PROCEDURE verificaExclusao();
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------
+----- Questao 4.5
+
+CREATE OR REPLACE FUNCTION dentroDoHorario () RETURNS TRIGGER  AS $$
+	DECLARE
+		theHour INTEGER;
+		theDay INTEGER;
+		theMinute INTEGER;
+	BEGIN
+		SELECT EXTRACT(DOW FROM NEW.inicio) INTO theDay;
+		SELECT EXTRACT(HOUR FROM NEW.inicio)INTO theHour;
+		SELECT EXTRACT(MINUTE FROM NEW.inicio)INTO theMinute;
+
+		IF theDay = 0 OR theDay = 6 THEN
+			RAISE EXCEPTION 'Verifique o dia do atendimento';
+		END IF;
+		IF theHour<8 OR theHour>21    OR theHour=12  OR theHour=13 AND theMinute<31 THEN
+			RAISE EXCEPTION 'Verifique o horario de atendimento do barbeiro';
+		END IF;
+		RETURN NEW;
+		
+	
+
+	END;
+$$ LANGUAGE plpgsql;
+
+--Criar o gatilho
+CREATE TRIGGER trigger_dentroDoHorario BEFORE INSERT OR UPDATE ON agendamento
+FOR EACH ROW EXECUTE PROCEDURE dentroDoHorario();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
